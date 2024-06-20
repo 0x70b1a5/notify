@@ -24,15 +24,29 @@ interface notify {
         mutable-content: option<bool>,
     }
 
+    record process-notif-config {
+        /// process id to configure
+        process: string,
+        /// allow notifications
+        allow: bool,
+    }
+
     variant request {
+        /// send a notification
         push(notification),
         /// history of notifications for given package
         history(string),
+        /// change settings
+        update-settings(process-notif-config),
     }
 
     variant response {
+        /// notification sent
         push,
+        /// history of notifications for given package
         history(list<notification>),
+        /// settings for given package updated
+        update-settings,
     }
 }
 
