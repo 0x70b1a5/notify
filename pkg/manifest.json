@@ -1,0 +1,16 @@
+[
+    {
+        "process_name": "notify",
+        "process_wasm_path": "/notify.wasm",
+        "on_exit": "Restart",
+        "request_networking": true,
+        "request_capabilities": [
+            "http_server:distro:sys",
+            "homepage:homepage:sys"
+        ],
+        "grant_capabilities": [
+            "http_server:distro:sys"
+        ],
+        "public": false
+    }
+]
