@@ -7,13 +7,13 @@ use kinode_process_lib::{
     await_message, call_init, get_blob, get_typed_state,
     homepage::add_to_homepage,
     http::{
-        bind_http_path, send_response, HttpClientAction, HttpServerRequest, Method,
-        OutgoingHttpRequest, StatusCode,
+        bind_http_path, bind_ws_path, send_response, send_ws_push, HttpClientAction,
+        HttpServerRequest, Method, OutgoingHttpRequest, StatusCode, WsMessageType,
     },
     println, set_state, Address, LazyLoadBlob, Message, ProcessId, Request, Response,
 };
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::{collections::HashMap, str::FromStr};
 
 wit_bindgen::generate!({
     path: "target/wit",
@@ -29,15 +29,47 @@ struct NotifState {
     push_tokens: Vec<String>,
 }
 
-fn handle_http_request(message: Message, state: &mut NotifState) -> anyhow::Result<()> {
-    let Ok(req) = serde_json::from_slice::<HttpServerRequest>(message.body()) else {
+fn handle_http_server_request(
+    our: &Address,
+    state: &mut NotifState,
+    source: &Address,
+    body: &[u8],
+    our_channel_id: &mut u32,
+) -> anyhow::Result<()> {
+    println!("handle http server request");
+    let Ok(server_request) = serde_json::from_slice::<HttpServerRequest>(body) else {
+        println!("failed to parse request");
         return Ok(());
     };
-    match req {
+
+    match server_request {
+        HttpServerRequest::WebSocketOpen { channel_id, .. } => {
+            println!("websocket open");
+            // Set our channel_id to the newly opened channel
+            // Note: this code could be improved to support multiple channels
+            *our_channel_id = channel_id;
+
+            push_notifs_to_ws(our_channel_id, state)?;
+        }
+        HttpServerRequest::WebSocketPush { .. } => {
+            println!("websocket push");
+            let Some(blob) = get_blob() else {
+                println!("no blob");
+                return Ok(());
+            };
+
+            handle_notify_request(our, state, source, &blob.bytes, our_channel_id)?;
+        }
+        HttpServerRequest::WebSocketClose(_channel_id) => {
+            println!("websocket close");
+            *our_channel_id = 0;
+        }
         HttpServerRequest::Http(incoming) => {
+            println!("http request");
             let path = incoming.bound_path(Some("notify:notify:sys"));
             match path {
                 "/add-token" => {
+                    println!("add token");
                     if let Ok(Method::POST) = incoming.method()
                         && let Some(body) = get_blob()
                     {
@@ -50,6 +82,7 @@ fn handle_http_request(message: Message, state: &mut NotifState) -> anyhow::Resu
                     }
                 }
                 "/notifs" => {
+                    println!("notifs");
                     let mut notifs_list: Vec<OutNotif> = vec![];
                     for (process, notifs) in state.archive.iter() {
                         for notif in notifs {
@@ -73,16 +106,40 @@ fn handle_http_request(message: Message, state: &mut NotifState) -> anyhow::Resu
                 }
             }
         }
-        _ => {}
-    }
+    };
+
     Ok(())
 }
 
-fn handle_request(message: Message, our: &Address, state: &mut NotifState) -> anyhow::Result<()> {
-    let body = message.body();
-    let source = message.source();
-    match serde_json::from_slice(body)? {
+fn push_notifs_to_ws(our_channel_id: &mut u32, state: &NotifState) -> anyhow::Result<()> {
+    send_ws_push(
+        our_channel_id.clone(),
+        WsMessageType::Text,
+        LazyLoadBlob {
+            mime: Some("application/json".to_string()),
+            bytes: serde_json::json!({
+                "kind": "history",
+                "data": &state.archive,
+            })
+            .to_string()
+            .as_bytes()
+            .to_vec(),
+        },
+    );
+    Ok(())
+}
+
+fn handle_notify_request(
+    our: &Address,
+    state: &mut NotifState,
+    source: &Address,
+    body: &[u8],
+    _channel_id: &mut u32,
+) -> anyhow::Result<()> {
+    println!("handle notify request");
+    match serde_json::from_slice::<NotifyRequest>(body)? {
         NotifyRequest::Push(ref notif) => {
+            println!("push");
             if source.node == our.node {
                 println!("push request: {}", source.process.clone().to_string());
 
@@ -107,6 +164,7 @@ fn handle_request(message: Message, our: &Address, state: &mut NotifState) -> an
                 .send()?;
         }
         NotifyRequest::History => {
+            println!("history");
             let mut notifs_list: Vec<OutNotif> = vec![];
             for (process, notifs) in state.archive.iter() {
                 for notif in notifs {
@@ -121,36 +179,56 @@ fn handle_request(message: Message, our: &Address, state: &mut NotifState) -> an
                 .send()?;
         }
         NotifyRequest::UpdateSettings(ref config) => {
+            println!("update settings");
             state
                 .config
                 .insert(config.clone().process.to_string(), config.clone());
             set_state(&bincode::serialize(&state)?);
         }
+        NotifyRequest::WebSocketClose(_) => {}
     }
     Ok(())
 }
 
-fn handle_message(our: &Address, state: &mut NotifState) -> anyhow::Result<()> {
+fn handle_response(_source: &Address, _body: &[u8], _is_http: bool) -> anyhow::Result<()> {
+    Ok(())
+}
+
+fn handle_message(
+    our: &Address,
+    state: &mut NotifState,
+    channel_id: &mut u32,
+) -> anyhow::Result<()> {
     let message = await_message()?;
 
-    if message.is_request() {
-        if message.source().process() == "http_server:distro:sys"
-            && serde_json::from_slice::<HttpServerRequest>(message.body()).is_ok()
-        {
-            handle_http_request(message, state)?;
-        } else {
-            handle_request(message, our, state)?;
+    let http_server_address = ProcessId::from_str("http_server:distro:sys")?;
+
+    match message {
+        Message::Response {
+            ref source,
+            ref body,
+            ..
+        } => handle_response(source, body, false),
+        Message::Request {
+            ref source,
+            ref body,
+            ..
+        } => {
+            if source.process.eq(&http_server_address) {
+                handle_http_server_request(&our, state, source, body, channel_id)
+            } else {
+                handle_notify_request(our, state, source, body, channel_id)
+            }
         }
     }
-    Ok(())
 }
-
 call_init!(init);
 fn init(our: Address) {
     println!("begin");
 
     bind_http_path("/add-token", false, false).expect("failed to bind /add-token");
     bind_http_path("/notifs", true, false).expect("failed to bind /notifs");
+    bind_ws_path("/", true, false).unwrap();
 
     let mut state: NotifState = match get_typed_state(|bytes| Ok(bincode::deserialize(bytes)?)) {
         Some(s) => s,
@@ -162,9 +240,10 @@ fn init(our: Address) {
     };
 
     add_to_homepage("Notifications", None, None, Some(create_widget()));
+    let mut our_channel_id: u32 = 1854;
 
     loop {
-        match handle_message(&our, &mut state) {
+        match handle_message(&our, &mut state, &mut our_channel_id) {
             Ok(()) => {}
             Err(e) => {
                 println!("error: {:?}", e);

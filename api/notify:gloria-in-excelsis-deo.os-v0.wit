@@ -43,6 +43,8 @@ interface notify {
         history,
         /// change settings
         update-settings(process-notif-config),
+        /// close a web socket
+        web-socket-close(u32),
     }
 
     variant response {

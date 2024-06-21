@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
+import KinodeApi from '@kinode/client-api'
 
 const BASE_URL = (import.meta as any).env.BASE_URL; // eslint-disable-line
 
@@ -25,22 +26,41 @@ interface NotificationWithProcess {
 export interface NotifyStore {
   get: () => NotifyStore
   set: (partial: NotifyStore | Partial<NotifyStore>) => void
-  notifications: NotificationWithProcess[]
-  fetchNotifications: () => Promise<void>
+  notifications: Record<string, NotificationWithProcess[]>
+  api: KinodeApi | null
+  setApi: (api: KinodeApi) => void
+  handleWsMessage: (json: string | Blob) => void
 }
+
+type WsMessage =
+  | { kind: 'history', data: Record<string, NotificationWithProcess[]> }
+  | { kind: 'push', data: undefined }
 
 const useNotifyStore = create<NotifyStore>()(
   persist(
     (set, get) => ({
       get,
       set,
-      notifications: [],
+      notifications: {},
+      api: null,
+      setApi: (api) => set({ api }),
 
-      fetchNotifications: async () => {
-        const res = await fetch(`${BASE_URL}/notifs`)
-        const notifications = await res.json()
-        set(() => ({ notifications }))
-      }
+      handleWsMessage: (json: string | Blob) => {
+        if (typeof json === 'string') {
+          try {
+            console.log('WS: GOT MESSAGE', json)
+            const { kind, data } = JSON.parse(json) as WsMessage;
+            if (kind === 'history') {
+              set({ notifications: data })
+            }
+          } catch (error) {
+            console.error("Error parsing WebSocket message", error);
+          }
+        } else {
+          console.log('WS: GOT BLOB', json)
+        }
+      },
+
     }),
     {
       name: 'notify_store', // unique name
