@@ -1,5 +1,5 @@
 # notify
-A [https://github.com/kinode-dao/kinode](Kinode) app for notifications.
+A [Kinode](https://github.com/kinode-dao/kinode) app for notifications.
 
 ## Roadmap
 - [x] Apps can push notifications to us
