@@ -1,6 +1,7 @@
 #![feature(let_chains)]
 use crate::kinode::process::notify::{
-    Notification as Notif, ProcessNotifConfig, Request as NotifyRequest, Response as NotifyResponse,
+    Notification as InNotif, NotificationWithProcess as OutNotif, ProcessNotifConfig,
+    Request as NotifyRequest, Response as NotifyResponse,
 };
 use kinode_process_lib::{
     await_message, call_init, get_blob, get_typed_state,
@@ -24,11 +25,14 @@ wit_bindgen::generate!({
 #[derive(Serialize, Deserialize)]
 struct NotifState {
     config: HashMap<String, ProcessNotifConfig>,
-    archive: HashMap<String, Vec<Notif>>,
+    archive: HashMap<String, Vec<InNotif>>,
     push_tokens: Vec<String>,
 }
 
-fn handle_http_request(req: HttpServerRequest, state: &mut NotifState) -> anyhow::Result<()> {
+fn handle_http_request(message: Message, state: &mut NotifState) -> anyhow::Result<()> {
+    let Ok(req) = serde_json::from_slice::<HttpServerRequest>(message.body()) else {
+        return Ok(());
+    };
     match req {
         HttpServerRequest::Http(incoming) => {
             let path = incoming.bound_path(Some("notify:notify:sys"));
@@ -46,10 +50,13 @@ fn handle_http_request(req: HttpServerRequest, state: &mut NotifState) -> anyhow
                     }
                 }
                 "/notifs" => {
-                    let mut notifs_list: Vec<Notif> = vec![];
-                    for (_process, notifs) in state.archive.iter() {
+                    let mut notifs_list: Vec<OutNotif> = vec![];
+                    for (process, notifs) in state.archive.iter() {
                         for notif in notifs {
-                            notifs_list.push(notif.clone());
+                            notifs_list.push(OutNotif {
+                                process: process.clone(),
+                                notification: notif.clone(),
+                            });
                         }
                     }
                     send_response(
@@ -96,25 +103,22 @@ fn handle_request(message: Message, our: &Address, state: &mut NotifState) -> an
                 // TODO: ignore notifications from other nodes?
             }
             Response::new()
-                .body(serde_json::to_vec(&NotifyResponse::Push).unwrap())
-                .send()
-                .unwrap();
+                .body(serde_json::to_vec(&NotifyResponse::Push)?)
+                .send()?;
         }
-        NotifyRequest::History(ref process) => {
-            println!("history request for process: {}", process);
+        NotifyRequest::History => {
+            let mut notifs_list: Vec<OutNotif> = vec![];
+            for (process, notifs) in state.archive.iter() {
+                for notif in notifs {
+                    notifs_list.push(OutNotif {
+                        process: process.clone(),
+                        notification: notif.clone(),
+                    });
+                }
+            }
             Response::new()
-                .body(
-                    serde_json::to_vec(&NotifyResponse::History(
-                        state
-                            .archive
-                            .get(process)
-                            .map(|ns| ns.clone())
-                            .unwrap_or_default(),
-                    ))
-                    .unwrap(),
-                )
-                .send()
-                .unwrap();
+                .body(serde_json::to_vec(&NotifyResponse::History(notifs_list))?)
+                .send()?;
         }
         NotifyRequest::UpdateSettings(ref config) => {
             state
@@ -130,10 +134,10 @@ fn handle_message(our: &Address, state: &mut NotifState) -> anyhow::Result<()> {
     let message = await_message()?;
 
     if message.is_request() {
-        if message.source().process == "http_server:distro:sys"
-            && let Ok(req) = serde_json::from_slice::<HttpServerRequest>(message.body())
+        if message.source().process() == "http_server:distro:sys"
+            && serde_json::from_slice::<HttpServerRequest>(message.body()).is_ok()
         {
-            handle_http_request(req, state)?;
+            handle_http_request(message, state)?;
         } else {
             handle_request(message, our, state)?;
         }
@@ -169,7 +173,7 @@ fn init(our: Address) {
     }
 }
 
-fn send_notif_to_expo(notif: &mut Notif) -> anyhow::Result<()> {
+fn send_notif_to_expo(notif: &mut InNotif) -> anyhow::Result<()> {
     let outgoing_request = OutgoingHttpRequest {
         method: "POST".to_string(),
         version: None,

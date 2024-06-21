@@ -24,6 +24,11 @@ interface notify {
         mutable-content: option<bool>,
     }
 
+    record notification-with-process {
+        process: string,
+        notification: notification,
+    }
+
     record process-notif-config {
         /// process id to configure
         process: string,
@@ -34,8 +39,8 @@ interface notify {
     variant request {
         /// send a notification
         push(notification),
-        /// history of notifications for given package
-        history(string),
+        /// history of notifications 
+        history,
         /// change settings
         update-settings(process-notif-config),
     }
@@ -44,7 +49,7 @@ interface notify {
         /// notification sent
         push,
         /// history of notifications for given package
-        history(list<notification>),
+        history(list<notification-with-process>),
         /// settings for given package updated
         update-settings,
     }
