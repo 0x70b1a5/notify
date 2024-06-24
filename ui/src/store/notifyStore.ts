@@ -20,6 +20,10 @@ interface Notification {
   mutableContent?: boolean
 }
 
+interface ProcessNotifConfig {
+  allow: boolean,
+}
+
 export interface NotifyStore {
   get: () => NotifyStore
   set: (partial: NotifyStore | Partial<NotifyStore>) => void
@@ -29,6 +33,8 @@ export interface NotifyStore {
   api: KinodeApi | null
   setApi: (api: KinodeApi) => void
   handleWsMessage: (json: string | Blob) => void
+  settings: Record<string, ProcessNotifConfig>
+  setSettings: (settings: Record<string, ProcessNotifConfig>) => void
 }
 
 type WsMessage =
@@ -44,6 +50,8 @@ const useNotifyStore = create<NotifyStore>()(
       notifications: {},
       api: null,
       setApi: (api) => set({ api }),
+      settings: {},
+      setSettings: (settings) => set({ settings }),
 
       handleWsMessage: (json: string | Blob) => {
         if (typeof json === 'string') {

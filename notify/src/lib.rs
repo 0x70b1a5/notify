@@ -1,7 +1,6 @@
 #![feature(let_chains)]
 use crate::kinode::process::notify::{
-    Notification as InNotif, NotificationWithProcess as OutNotif, ProcessNotifConfig,
-    Request as NotifyRequest, Response as NotifyResponse,
+    Notification, NotificationWithProcess, Request as NotifyRequest, Response as NotifyResponse,
 };
 use kinode_process_lib::{
     await_message, call_init, get_blob, get_typed_state,
@@ -12,8 +11,11 @@ use kinode_process_lib::{
     },
     println, set_state, Address, LazyLoadBlob, Message, ProcessId, Request, Response,
 };
-use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, str::FromStr};
+mod widget;
+use widget::create_widget;
+mod types;
+use types::NotifState;
 
 wit_bindgen::generate!({
     path: "target/wit",
@@ -21,13 +23,6 @@ wit_bindgen::generate!({
     generate_unused_types: true,
     additional_derives: [serde::Deserialize, serde::Serialize],
 });
-
-#[derive(Serialize, Deserialize)]
-struct NotifState {
-    config: HashMap<String, ProcessNotifConfig>,
-    archive: HashMap<String, Vec<InNotif>>,
-    push_tokens: Vec<String>,
-}
 
 fn handle_http_server_request(
     our: &Address,
@@ -72,7 +67,7 @@ fn handle_http_server_request(
         }
         HttpServerRequest::Http(incoming) => {
             println!("http request");
-            let path = incoming.bound_path(Some("notify:notify:sys"));
+            let path = incoming.bound_path(Some("notify:notify:gloria-in-excelsis-deo.os"));
             match path {
                 "/add-token" => {
                     println!("add token");
@@ -89,10 +84,10 @@ fn handle_http_server_request(
                 }
                 "/notifs" => {
                     println!("notifs");
-                    let mut notifs_list: Vec<OutNotif> = vec![];
+                    let mut notifs_list: Vec<NotificationWithProcess> = vec![];
                     for (process, notifs) in state.archive.iter() {
                         for notif in notifs {
-                            notifs_list.push(OutNotif {
+                            notifs_list.push(NotificationWithProcess {
                                 process: process.clone(),
                                 notification: notif.clone(),
                             });
@@ -180,7 +175,7 @@ fn handle_notify_request(
                 // TODO: ignore notifications from other nodes?
             }
             if is_http {
-                push_notifs_to_ws(channel_id);
+                push_notifs_to_ws(channel_id)?;
             } else {
                 Response::new()
                     .body(serde_json::to_vec(&NotifyResponse::Push)?)
@@ -189,10 +184,10 @@ fn handle_notify_request(
         }
         NotifyRequest::History => {
             println!("history");
-            let mut notifs_list: Vec<OutNotif> = vec![];
+            let mut notifs_list: Vec<NotificationWithProcess> = vec![];
             for (process, notifs) in state.archive.iter() {
                 for notif in notifs {
-                    notifs_list.push(OutNotif {
+                    notifs_list.push(NotificationWithProcess {
                         process: process.clone(),
                         notification: notif.clone(),
                     });
@@ -272,7 +267,7 @@ fn init(our: Address) {
     }
 }
 
-fn send_notif_to_expo(notif: &mut InNotif) -> anyhow::Result<()> {
+fn send_notif_to_expo(notif: &mut Notification) -> anyhow::Result<()> {
     let outgoing_request = OutgoingHttpRequest {
         method: "POST".to_string(),
         version: None,
@@ -302,83 +297,4 @@ fn send_notif_to_expo(notif: &mut InNotif) -> anyhow::Result<()> {
         .send()?;
 
     Ok(())
-}
-
-fn create_widget() -> &'static str {
-    r#"<html>
-    <head>
-    <title>Notifications</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: sans-serif;
-            border-radius: 1em;
-            backdrop-filter: saturate(1.25);
-            color: white;
-        }
-
-        .notifs {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5em;
-            padding: 0.5em;
-        }
-
-        .notif {
-            border-radius: 0.5em;
-            padding: 0.5em;
-            background: rgba(255, 255, 255, 0.1);
-        }
-
-        .notif:hover {
-            background: rgba(255, 255, 255, 0.2);
-        }
-
-        .title {
-            font-weight: bold;
-        }
-
-        .body {
-            font-size: 14px;
-        }
-    </style>
-    </head>
-        <body>
-            <div class="notifs"></div>
-            <script>
-                document.addEventListener('DOMContentLoaded', () => {
-                    fetch('/notify:notify:sys/notifs')
-                    .then(response => response.json())
-                    .then(data => {
-                        if (!Array.isArray(data)) return;
-                        if (data.length === 0) {
-                            document.querySelector('.notifs').innerText = 'No notifications';
-                            return;
-                        }
-                        data.forEach(notif => {
-                            let notifElement = document.createElement('div');
-                            notifElement.classList.add('notif');
-                            const title = document.createElement('div')
-                            title.classList.add('title')
-                            title.innerText = notif.title;
-                            const body = document.createElement('div')
-                            body.classList.add('body')
-                            body.innerText = notif.body;
-                            notifElement.appendChild(title)
-                            notifElement.appendChild(body)
-                            document.querySelector('.notifs').appendChild(notifElement);
-                        });
-                    }).catch(e => {
-                        console.error(e);
-                    });
-                });
-            </script>
-        </body>
-    </html>"#
 }
