@@ -49,16 +49,22 @@ fn handle_http_server_request(
             // Note: this code could be improved to support multiple channels
             *our_channel_id = channel_id;
 
-            push_notifs_to_ws(our_channel_id, state)?;
+            println!("our channel id: {}", our_channel_id);
+
+            push_notifs_to_ws(our_channel_id)?;
         }
-        HttpServerRequest::WebSocketPush { .. } => {
+        HttpServerRequest::WebSocketPush { channel_id, .. } => {
             println!("websocket push");
+
+            *our_channel_id = channel_id;
+
+            println!("our channel id: {}", our_channel_id);
             let Some(blob) = get_blob() else {
                 println!("no blob");
                 return Ok(());
             };
 
-            handle_notify_request(our, state, source, &blob.bytes, our_channel_id)?;
+            handle_notify_request(our, state, source, &blob.bytes, our_channel_id, true)?;
         }
         HttpServerRequest::WebSocketClose(_channel_id) => {
             println!("websocket close");
@@ -111,9 +117,22 @@ fn handle_http_server_request(
     Ok(())
 }
 
-fn push_notifs_to_ws(our_channel_id: &mut u32, state: &NotifState) -> anyhow::Result<()> {
+fn empty_state() -> NotifState {
+    NotifState {
+        config: HashMap::new(),
+        archive: HashMap::new(),
+        push_tokens: vec![],
+    }
+}
+
+fn push_notifs_to_ws(channel_id: &mut u32) -> anyhow::Result<()> {
+    let state: NotifState = match get_typed_state(|bytes| Ok(bincode::deserialize(bytes)?)) {
+        Some(s) => s,
+        None => empty_state(),
+    };
+    println!("pushing state to ws");
     send_ws_push(
-        our_channel_id.clone(),
+        channel_id.clone(),
         WsMessageType::Text,
         LazyLoadBlob {
             mime: Some("application/json".to_string()),
@@ -134,7 +153,8 @@ fn handle_notify_request(
     state: &mut NotifState,
     source: &Address,
     body: &[u8],
-    _channel_id: &mut u32,
+    channel_id: &mut u32,
+    is_http: bool,
 ) -> anyhow::Result<()> {
     println!("handle notify request");
     match serde_json::from_slice::<NotifyRequest>(body)? {
@@ -159,9 +179,13 @@ fn handle_notify_request(
             } else {
                 // TODO: ignore notifications from other nodes?
             }
-            Response::new()
-                .body(serde_json::to_vec(&NotifyResponse::Push)?)
-                .send()?;
+            if is_http {
+                push_notifs_to_ws(channel_id);
+            } else {
+                Response::new()
+                    .body(serde_json::to_vec(&NotifyResponse::Push)?)
+                    .send()?;
+            }
         }
         NotifyRequest::History => {
             println!("history");
@@ -217,7 +241,7 @@ fn handle_message(
             if source.process.eq(&http_server_address) {
                 handle_http_server_request(&our, state, source, body, channel_id)
             } else {
-                handle_notify_request(our, state, source, body, channel_id)
+                handle_notify_request(our, state, source, body, channel_id, false)
             }
         }
     }
@@ -232,11 +256,7 @@ fn init(our: Address) {
 
     let mut state: NotifState = match get_typed_state(|bytes| Ok(bincode::deserialize(bytes)?)) {
         Some(s) => s,
-        None => NotifState {
-            config: HashMap::new(),
-            archive: HashMap::new(),
-            push_tokens: vec![],
-        },
+        None => empty_state(),
     };
 
     add_to_homepage("Notifications", None, None, Some(create_widget()));
@@ -337,6 +357,10 @@ fn create_widget() -> &'static str {
                     .then(response => response.json())
                     .then(data => {
                         if (!Array.isArray(data)) return;
+                        if (data.length === 0) {
+                            document.querySelector('.notifs').innerText = 'No notifications';
+                            return;
+                        }
                         data.forEach(notif => {
                             let notifElement = document.createElement('div');
                             notifElement.classList.add('notif');
