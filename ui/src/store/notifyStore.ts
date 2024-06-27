@@ -24,6 +24,12 @@ interface ProcessNotifConfig {
   allow: boolean,
 }
 
+export const DEFAULT_SETTINGS: ProcessNotifConfig = {
+  allow: true
+}
+
+type TabName = 'home' | 'settings'
+
 export interface NotifyStore {
   get: () => NotifyStore
   set: (partial: NotifyStore | Partial<NotifyStore>) => void
@@ -35,11 +41,20 @@ export interface NotifyStore {
   handleWsMessage: (json: string | Blob) => void
   settings: Record<string, ProcessNotifConfig>
   setSettings: (settings: Record<string, ProcessNotifConfig>) => void
+  tabs: TabName[]
+  activeTab: TabName
+  setActiveTab: (tab: TabName) => void
+}
+
+export interface NotifyState {
+  archive: Record<string, Notification[]>
+  config: Record<string, ProcessNotifConfig>
 }
 
 type WsMessage =
   | { kind: 'history', data: Record<string, Notification[]> }
   | { kind: 'push', data: undefined }
+  | { kind: 'state', data: NotifyState }
 
 const useNotifyStore = create<NotifyStore>()(
   persist(
@@ -52,14 +67,20 @@ const useNotifyStore = create<NotifyStore>()(
       setApi: (api) => set({ api }),
       settings: {},
       setSettings: (settings) => set({ settings }),
+      tabs: ['home', 'settings'],
+      activeTab: 'home',
+      setActiveTab: (tab) => set({ activeTab: tab }),
 
       handleWsMessage: (json: string | Blob) => {
         if (typeof json === 'string') {
           try {
             console.log('WS: GOT MESSAGE', json)
             const { kind, data } = JSON.parse(json) as WsMessage;
-            if (kind === 'history') {
-              set({ notifications: data })
+            if (kind === 'state') {
+              set({
+                notifications: data.archive,
+                settings: data.config,
+              })
             }
           } catch (error) {
             console.error("Error parsing WebSocket message", error);

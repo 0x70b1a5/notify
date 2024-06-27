@@ -132,8 +132,8 @@ fn push_notifs_to_ws(channel_id: &mut u32) -> anyhow::Result<()> {
         LazyLoadBlob {
             mime: Some("application/json".to_string()),
             bytes: serde_json::json!({
-                "kind": "history",
-                "data": &state.archive,
+                "kind": "state",
+                "data": &state,
             })
             .to_string()
             .as_bytes()
