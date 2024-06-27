@@ -30,10 +30,13 @@ interface notify {
     }
 
     record process-notif-config {
-        /// process id to configure
-        process: string,
         /// allow notifications
         allow: bool,
+    }
+
+    record process-settings-update {
+        process: string,
+        settings: process-notif-config,
     }
 
     variant request {
@@ -42,7 +45,7 @@ interface notify {
         /// history of notifications 
         history,
         /// change settings
-        update-settings(process-notif-config),
+        update-settings(process-settings-update),
         /// close a web socket
         web-socket-close(u32),
     }

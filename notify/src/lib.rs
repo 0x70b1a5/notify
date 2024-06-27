@@ -2,6 +2,7 @@
 use crate::kinode::process::notify::{
     Notification, NotificationWithProcess, Request as NotifyRequest, Response as NotifyResponse,
 };
+use kinode::process::notify::ProcessNotifConfig;
 use kinode_process_lib::{
     await_message, call_init, get_blob, get_typed_state,
     homepage::add_to_homepage,
@@ -143,6 +144,27 @@ fn push_notifs_to_ws(channel_id: &mut u32) -> anyhow::Result<()> {
     Ok(())
 }
 
+fn push_settings_updated(
+    channel_id: &mut u32,
+    settings: &HashMap<String, ProcessNotifConfig>,
+) -> anyhow::Result<()> {
+    send_ws_push(
+        channel_id.clone(),
+        WsMessageType::Text,
+        LazyLoadBlob {
+            mime: Some("application/json".to_string()),
+            bytes: serde_json::json!({
+                "kind": "settings-updated",
+                "data": &settings,
+            })
+            .to_string()
+            .as_bytes()
+            .to_vec(),
+        },
+    );
+    Ok(())
+}
+
 fn handle_notify_request(
     our: &Address,
     state: &mut NotifState,
@@ -152,6 +174,7 @@ fn handle_notify_request(
     is_http: bool,
 ) -> anyhow::Result<()> {
     println!("handle notify request");
+    println!("request: {:?}", serde_json::from_slice::<String>(body));
     match serde_json::from_slice::<NotifyRequest>(body)? {
         NotifyRequest::Push(ref notif) => {
             println!("push");
@@ -197,12 +220,19 @@ fn handle_notify_request(
                 .body(serde_json::to_vec(&NotifyResponse::History(notifs_list))?)
                 .send()?;
         }
-        NotifyRequest::UpdateSettings(ref config) => {
-            println!("update settings");
-            state
-                .config
-                .insert(config.clone().process.to_string(), config.clone());
+        NotifyRequest::UpdateSettings(ref new_settings) => {
+            println!("update settings: {:?}", new_settings);
+            state.config.insert(
+                new_settings.clone().process.to_string(),
+                new_settings.clone().settings,
+            );
             set_state(&bincode::serialize(&state)?);
+            let new_state: NotifState =
+                match get_typed_state(|bytes| Ok(bincode::deserialize(bytes)?)) {
+                    Some(s) => s,
+                    None => empty_state(),
+                };
+            push_settings_updated(channel_id, &new_state.config)?;
         }
         NotifyRequest::WebSocketClose(_) => {}
     }

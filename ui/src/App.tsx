@@ -8,7 +8,7 @@ import Settings from "./components/Settings"
 let inited = false
 
 function App() {
-  const { notifications, setApi, handleWsMessage, activeTab } = useNotifyStore()
+  const { notifications, setApi, handleWsMessage, activeTab, infoMessage, setInfoMessage, setInfoMessageWithTimeout } = useNotifyStore()
 
   const [connected, setConnected] = useState(false)
 
@@ -37,11 +37,13 @@ function App() {
 
   useEffect(() => {
     const ourChecker = setInterval(() => {
+      setInfoMessage('Connecting to the node...')
       if ((window as any).our) {
         fetch('/our').then(() => {
           setConnected(true)
+          setInfoMessageWithTimeout('Connected', 2000)
           clearInterval(ourChecker)
-        }).catch(() => { })
+        })
       }
     }, 1000)
   }, [])
@@ -53,7 +55,7 @@ function App() {
       <TabBar />
       {activeTab === 'home' && <Home />}
       {activeTab === 'settings' && <Settings />}
-      {!connected && <p className="absolute bottom-2 bg-black rounded p-2">Connecting to the node...</p>}
+      {infoMessage && <p className="absolute bottom-2 bg-black rounded p-2">{infoMessage}</p>}
     </div>
   )
 }

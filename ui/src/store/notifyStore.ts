@@ -28,6 +28,7 @@ export const DEFAULT_SETTINGS: ProcessNotifConfig = {
   allow: true
 }
 
+type Settings = Record<string, ProcessNotifConfig>
 type TabName = 'home' | 'settings'
 
 export interface NotifyStore {
@@ -39,22 +40,27 @@ export interface NotifyStore {
   api: KinodeApi | null
   setApi: (api: KinodeApi) => void
   handleWsMessage: (json: string | Blob) => void
-  settings: Record<string, ProcessNotifConfig>
-  setSettings: (settings: Record<string, ProcessNotifConfig>) => void
+  settings: Settings
+  setSettings: (settings: Settings) => void
+  saveSettings: (process: string, settings: ProcessNotifConfig) => void
   tabs: TabName[]
   activeTab: TabName
   setActiveTab: (tab: TabName) => void
+  infoMessage: string
+  setInfoMessage: (message: string) => void
+  setInfoMessageWithTimeout: (message: string, timeout: number) => void
 }
 
 export interface NotifyState {
   archive: Record<string, Notification[]>
-  config: Record<string, ProcessNotifConfig>
+  config: Settings
 }
 
 type WsMessage =
   | { kind: 'history', data: Record<string, Notification[]> }
   | { kind: 'push', data: undefined }
   | { kind: 'state', data: NotifyState }
+  | { kind: 'settings-updated', data: Settings }
 
 const useNotifyStore = create<NotifyStore>()(
   persist(
@@ -71,6 +77,15 @@ const useNotifyStore = create<NotifyStore>()(
       activeTab: 'home',
       setActiveTab: (tab) => set({ activeTab: tab }),
 
+      infoMessage: '',
+      setInfoMessage: (message: string) => set({ infoMessage: message }),
+      setInfoMessageWithTimeout: (message: string, timeout: number) => {
+        set({ infoMessage: message })
+        setTimeout(() => {
+          set({ infoMessage: '' })
+        }, timeout)
+      },
+
       handleWsMessage: (json: string | Blob) => {
         if (typeof json === 'string') {
           try {
@@ -81,6 +96,11 @@ const useNotifyStore = create<NotifyStore>()(
                 notifications: data.archive,
                 settings: data.config,
               })
+            } else if (kind === 'settings-updated') {
+              set({
+                settings: data,
+              })
+              get().setInfoMessageWithTimeout('Settings updated', 2000)
             }
           } catch (error) {
             console.error("Error parsing WebSocket message", error);
@@ -100,6 +120,20 @@ const useNotifyStore = create<NotifyStore>()(
           })
         }
       },
+
+      saveSettings: (process: string, settings: ProcessNotifConfig) => {
+        const { api } = get()
+        if (api) {
+          api.send({
+            data: {
+              UpdateSettings: {
+                process,
+                settings
+              }
+            }
+          })
+        }
+      }
 
     }),
     {
