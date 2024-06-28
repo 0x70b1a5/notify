@@ -4,7 +4,7 @@ import KinodeApi from '@kinode/client-api'
 
 const BASE_URL = (import.meta as any).env.BASE_URL; // eslint-disable-line
 
-interface Notification {
+export interface Notification {
   to: string[]
   data?: string
   title?: string
@@ -18,6 +18,7 @@ interface Notification {
   channelId?: string
   categoryId?: string
   mutableContent?: boolean
+  id?: string
 }
 
 interface ProcessNotifConfig {
@@ -49,6 +50,7 @@ export interface NotifyStore {
   infoMessage: string
   setInfoMessage: (message: string) => void
   setInfoMessageWithTimeout: (message: string, timeout: number) => void
+  clearNotification: (id: string) => void
 }
 
 export interface NotifyState {
@@ -61,6 +63,7 @@ type WsMessage =
   | { kind: 'push', data: undefined }
   | { kind: 'state', data: NotifyState }
   | { kind: 'settings-updated', data: Settings }
+  | { kind: 'delete', data: string }
 
 const useNotifyStore = create<NotifyStore>()(
   persist(
@@ -101,6 +104,16 @@ const useNotifyStore = create<NotifyStore>()(
                 settings: data,
               })
               get().setInfoMessageWithTimeout('Settings updated', 2000)
+            } else if (kind === 'delete') {
+              const { notifications, setInfoMessageWithTimeout } = get()
+              const newNotifications = { ...notifications }
+              for (const process in newNotifications) {
+                newNotifications[process] = newNotifications[process].filter((notification) => notification.id !== data)
+              }
+              set({
+                notifications: newNotifications
+              })
+              setInfoMessageWithTimeout('Notification cleared', 2000)
             }
           } catch (error) {
             console.error("Error parsing WebSocket message", error);
@@ -133,8 +146,18 @@ const useNotifyStore = create<NotifyStore>()(
             }
           })
         }
-      }
+      },
 
+      clearNotification: (id: string) => {
+        const { api } = get()
+        if (api) {
+          api.send({
+            data: {
+              Delete: id
+            }
+          })
+        }
+      }
     }),
     {
       name: 'notify_store', // unique name

@@ -13,6 +13,7 @@ use kinode_process_lib::{
     println, set_state, Address, LazyLoadBlob, Message, ProcessId, Request, Response,
 };
 use std::{collections::HashMap, str::FromStr};
+use uuid::Uuid;
 mod widget;
 use widget::create_widget;
 mod types;
@@ -176,10 +177,18 @@ fn handle_notify_request(
     println!("handle notify request");
     println!("request: {:?}", serde_json::from_slice::<String>(body));
     match serde_json::from_slice::<NotifyRequest>(body)? {
-        NotifyRequest::Push(ref notif) => {
+        NotifyRequest::Push(mut notif) => {
             println!("push");
             if source.node == our.node {
                 println!("push request: {}", source.process.clone().to_string());
+
+                // if notif.id is not None, reject the Push
+                if notif.id.is_some() {
+                    return Ok(());
+                }
+
+                // set notif.id
+                notif.id = Some(Uuid::new_v4().to_string());
 
                 state
                     .archive
@@ -234,6 +243,24 @@ fn handle_notify_request(
                 };
             push_settings_updated(channel_id, &new_state.config)?;
         }
+        NotifyRequest::Delete(id) => {
+            println!("delete: {}", id);
+            for (_process, notifs) in state.archive.iter_mut() {
+                *notifs = notifs
+                    .iter()
+                    .filter(|n| n.id != Some(id.clone()))
+                    .cloned()
+                    .collect();
+            }
+            set_state(&bincode::serialize(&state)?);
+            if is_http {
+                push_notifs_to_ws(channel_id)?;
+            } else {
+                Response::new()
+                    .body(serde_json::to_vec(&NotifyResponse::Delete)?)
+                    .send()?;
+            }
+        }
         NotifyRequest::WebSocketClose(_) => {}
     }
     Ok(())
@@ -271,6 +298,9 @@ fn handle_message(
         }
     }
 }
+
+const ICON: &str = include_str!("ICON");
+
 call_init!(init);
 fn init(our: Address) {
     println!("begin");
@@ -284,7 +314,7 @@ fn init(our: Address) {
         None => empty_state(),
     };
 
-    add_to_homepage("Notifications", None, None, Some(create_widget()));
+    add_to_homepage("Notifications", Some(ICON), None, Some(create_widget()));
     let mut our_channel_id: u32 = 1854;
 
     loop {

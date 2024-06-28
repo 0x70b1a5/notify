@@ -36,6 +36,7 @@ export default defineConfig({
       external: ['/our.js']
     }
   },
+  publicDir: 'public',
   server: {
     open: true,
     proxy: {
@@ -49,7 +50,7 @@ export default defineConfig({
         rewrite: (path) => path.replace(BASE_URL, ''),
       },
       // This route will match all other HTTP requests to the backend
-      [`^${BASE_URL}/(?!(@vite/client|src/.*|node_modules/.*|@react-refresh|__uno.css|$))`]: {
+      [`^${BASE_URL}/(?!(@vite/client|src/.*|node_modules/.*|@react-refresh|__uno.css|favicon.png|$))`]: {
         target: PROXY_URL,
         changeOrigin: true,
       },
