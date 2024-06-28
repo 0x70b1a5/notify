@@ -182,25 +182,26 @@ fn handle_notify_request(
             if source.node == our.node {
                 println!("push request: {}", source.process.clone().to_string());
 
-                // if notif.id is not None, reject the Push
-                if notif.id.is_some() {
-                    return Ok(());
-                }
-
-                // set notif.id
-                notif.id = Some(Uuid::new_v4().to_string());
-
-                state
-                    .archive
-                    .entry(source.process.clone().to_string())
-                    .and_modify(|e| e.push(notif.clone()))
-                    .or_insert(vec![notif.clone()]);
-
-                set_state(&bincode::serialize(&state)?);
-
+                // ignore the notification if process is not allowed
                 if let Some(config) = state.config.get(&source.process.to_string())
                     && config.allow
                 {
+                    // if notif.id is not None, reject the Push
+                    if notif.id.is_some() {
+                        return Ok(());
+                    }
+
+                    // set notif.id
+                    notif.id = Some(Uuid::new_v4().to_string());
+
+                    state
+                        .archive
+                        .entry(source.process.clone().to_string())
+                        .and_modify(|e| e.push(notif.clone()))
+                        .or_insert(vec![notif.clone()]);
+
+                    set_state(&bincode::serialize(&state)?);
+
                     // TODO: send notification
                 }
             } else {

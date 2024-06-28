@@ -8,6 +8,9 @@ export default function CreateTestNotif() {
   const [nBody, setNBody] = useState("")
 
   const handleSubmit = () => {
+    if (nTitle === "" || nBody === "") {
+      return
+    }
     pushNotification({
       to: ['Test'],
       title: nTitle,
@@ -22,12 +25,14 @@ export default function CreateTestNotif() {
       <h2 className="font-bold">Create Test Notification</h2>
       <input
         type="text"
-        onChange={(e) => setNTitle(e.target.value)}
+        onChange={(e) => setNTitle(e.target.value || '')}
+        value={nTitle || ''}
         placeholder="Title"
       />
       <input
         type="text"
-        onChange={(e) => setNBody(e.target.value)}
+        onChange={(e) => setNBody(e.target.value || '')}
+        value={nBody || ''}
         placeholder="Body"
       />
       <button
