@@ -12,7 +12,7 @@ use kinode_process_lib::{
     },
     println, set_state, Address, LazyLoadBlob, Message, ProcessId, Request, Response,
 };
-use std::{collections::HashMap, str::FromStr};
+use std::{any, collections::HashMap, str::FromStr};
 use uuid::Uuid;
 mod widget;
 use widget::create_widget;
@@ -145,7 +145,7 @@ fn push_notifs_to_ws(channel_id: &mut u32) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn push_settings_updated(
+fn push_settings_updated_to_ws(
     channel_id: &mut u32,
     settings: &HashMap<String, ProcessNotifConfig>,
 ) -> anyhow::Result<()> {
@@ -157,6 +157,24 @@ fn push_settings_updated(
             bytes: serde_json::json!({
                 "kind": "settings-updated",
                 "data": &settings,
+            })
+            .to_string()
+            .as_bytes()
+            .to_vec(),
+        },
+    );
+    Ok(())
+}
+
+fn push_error_message_to_ws(channel_id: &mut u32, message: String) -> anyhow::Result<()> {
+    send_ws_push(
+        channel_id.clone(),
+        WsMessageType::Text,
+        LazyLoadBlob {
+            mime: Some("application/json".to_string()),
+            bytes: serde_json::json!({
+                "kind": "error",
+                "data": message
             })
             .to_string()
             .as_bytes()
@@ -183,11 +201,25 @@ fn handle_notify_request(
                 println!("push request: {}", source.process.clone().to_string());
 
                 // ignore the notification if process is not allowed
-                if let Some(config) = state.config.get(&source.process.to_string())
-                    && config.allow
-                {
+                if let Some(config) = state.config.get(&source.process.to_string()) {
+                    if !config.allow {
+                        push_error_message_to_ws(
+                            channel_id,
+                            format!(
+                                "Process {} is not allowed to send notifications.",
+                                source.process.to_string()
+                            ),
+                        )?;
+                        return Ok(());
+                    }
+
                     // if notif.id is not None, reject the Push
+                    // we alone can set ids
                     if notif.id.is_some() {
+                        push_error_message_to_ws(
+                            channel_id,
+                            "Pushed notification IDs must not be set.".to_string(),
+                        )?;
                         return Ok(());
                     }
 
@@ -203,9 +235,22 @@ fn handle_notify_request(
                     set_state(&bincode::serialize(&state)?);
 
                     // TODO: send notification
+                } else {
+                    push_error_message_to_ws(
+                        channel_id,
+                        format!("Process {} is not configured.", source.process.to_string()),
+                    )?;
+                    return Ok(());
                 }
             } else {
-                // TODO: ignore notifications from other nodes?
+                push_error_message_to_ws(
+                    channel_id,
+                    format!(
+                        "Node {} is not allowed to send notifications.",
+                        source.node.to_string()
+                    ),
+                )?;
+                return Ok(());
             }
             if is_http {
                 push_notifs_to_ws(channel_id)?;
@@ -242,7 +287,7 @@ fn handle_notify_request(
                     Some(s) => s,
                     None => empty_state(),
                 };
-            push_settings_updated(channel_id, &new_state.config)?;
+            push_settings_updated_to_ws(channel_id, &new_state.config)?;
         }
         NotifyRequest::Delete(id) => {
             println!("delete: {}", id);

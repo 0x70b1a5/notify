@@ -64,6 +64,7 @@ type WsMessage =
   | { kind: 'state', data: NotifyState }
   | { kind: 'settings-updated', data: Settings }
   | { kind: 'delete', data: string }
+  | { kind: 'error', data: string }
 
 const useNotifyStore = create<NotifyStore>()(
   persist(
@@ -94,6 +95,7 @@ const useNotifyStore = create<NotifyStore>()(
           try {
             console.log('WS: GOT MESSAGE', json)
             const { kind, data } = JSON.parse(json) as WsMessage;
+            const { setInfoMessageWithTimeout, notifications } = get()
             if (kind === 'state') {
               set({
                 notifications: data.archive,
@@ -103,9 +105,8 @@ const useNotifyStore = create<NotifyStore>()(
               set({
                 settings: data,
               })
-              get().setInfoMessageWithTimeout('Settings updated', 2000)
+              setInfoMessageWithTimeout('Settings updated', 2000)
             } else if (kind === 'delete') {
-              const { notifications, setInfoMessageWithTimeout } = get()
               const newNotifications = { ...notifications }
               for (const process in newNotifications) {
                 newNotifications[process] = newNotifications[process].filter((notification) => notification.id !== data)
@@ -114,6 +115,8 @@ const useNotifyStore = create<NotifyStore>()(
                 notifications: newNotifications
               })
               setInfoMessageWithTimeout('Notification cleared', 2000)
+            } else if (kind === 'error') {
+              setInfoMessageWithTimeout(data, 2000);
             }
           } catch (error) {
             console.error("Error parsing WebSocket message", error);
