@@ -193,7 +193,6 @@ fn handle_notify_request(
     is_http: bool,
 ) -> anyhow::Result<()> {
     println!("handle notify request");
-    println!("request: {:?}", serde_json::from_slice::<String>(body));
     match serde_json::from_slice::<NotifyRequest>(body)? {
         NotifyRequest::Push(mut notif) => {
             println!("push");
