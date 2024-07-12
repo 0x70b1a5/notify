@@ -55,15 +55,16 @@ pub fn create_widget() -> &'static str {
                           document.querySelector('.notifs').innerText = 'No notifications';
                           return;
                       }
+                      console.log({ notifs: data })
                       data.forEach(notif => {
                           let notifElement = document.createElement('div');
                           notifElement.classList.add('notif');
                           const title = document.createElement('div')
                           title.classList.add('title')
-                          title.innerText = notif.title;
+                          title.innerText = notif.notification.title;
                           const body = document.createElement('div')
                           body.classList.add('body')
-                          body.innerText = notif.body;
+                          body.innerText = notif.notification.body;
                           notifElement.appendChild(title)
                           notifElement.appendChild(body)
                           document.querySelector('.notifs').appendChild(notifElement);

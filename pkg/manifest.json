@@ -6,7 +6,8 @@
         "request_networking": true,
         "request_capabilities": [
             "http_server:distro:sys",
-            "homepage:homepage:sys"
+            "homepage:homepage:sys",
+            "vfs:distro:sys"
         ],
         "grant_capabilities": [
             "http_server:distro:sys"

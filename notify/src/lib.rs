@@ -7,7 +7,7 @@ use kinode_process_lib::{
     await_message, call_init, get_blob, get_typed_state,
     homepage::add_to_homepage,
     http::{
-        bind_http_path, bind_ws_path, send_response, send_ws_push, HttpClientAction,
+        bind_http_path, bind_ws_path, send_response, send_ws_push, serve_ui, HttpClientAction,
         HttpServerRequest, Method, OutgoingHttpRequest, StatusCode, WsMessageType,
     },
     println, set_state, Address, LazyLoadBlob, Message, ProcessId, Request, Response,
@@ -184,6 +184,21 @@ fn push_error_message_to_ws(channel_id: &mut u32, message: String) -> anyhow::Re
     Ok(())
 }
 
+fn add_notif_to_archive(
+    state: &mut NotifState,
+    source: &Address,
+    notif: &mut Notification,
+) -> anyhow::Result<()> {
+    notif.id = Some(Uuid::new_v4().to_string());
+    state
+        .archive
+        .entry(source.process.clone().to_string())
+        .and_modify(|e| e.push(notif.clone()))
+        .or_insert(vec![notif.clone()]);
+    set_state(&bincode::serialize(&state)?);
+    Ok(())
+}
+
 fn handle_notify_request(
     our: &Address,
     state: &mut NotifState,
@@ -222,23 +237,15 @@ fn handle_notify_request(
                         return Ok(());
                     }
 
-                    // set notif.id
-                    notif.id = Some(Uuid::new_v4().to_string());
-
-                    state
-                        .archive
-                        .entry(source.process.clone().to_string())
-                        .and_modify(|e| e.push(notif.clone()))
-                        .or_insert(vec![notif.clone()]);
-
-                    set_state(&bincode::serialize(&state)?);
-
+                    add_notif_to_archive(state, source, &mut notif)?;
                     // TODO: send notification
                 } else {
-                    push_error_message_to_ws(
-                        channel_id,
-                        format!("Process {} is not configured.", source.process.to_string()),
-                    )?;
+                    // insert default config
+                    state.config.insert(
+                        source.process.to_string(),
+                        ProcessNotifConfig { allow: true },
+                    );
+                    add_notif_to_archive(state, source, &mut notif)?;
                     return Ok(());
                 }
             } else {
@@ -353,13 +360,19 @@ fn init(our: Address) {
     bind_http_path("/add-token", false, false).expect("failed to bind /add-token");
     bind_http_path("/notifs", true, false).expect("failed to bind /notifs");
     bind_ws_path("/", true, false).unwrap();
+    serve_ui(&our, &"ui", true, false, vec!["/"]);
 
     let mut state: NotifState = match get_typed_state(|bytes| Ok(bincode::deserialize(bytes)?)) {
         Some(s) => s,
         None => empty_state(),
     };
 
-    add_to_homepage("Notifications", Some(ICON), None, Some(create_widget()));
+    add_to_homepage(
+        "Notifications",
+        Some(ICON),
+        Some("/"),
+        Some(create_widget()),
+    );
     let mut our_channel_id: u32 = 1854;
 
     loop {
