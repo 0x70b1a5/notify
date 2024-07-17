@@ -67,7 +67,7 @@ interface notify {
     }
 }
 
-world notify-sys-v0 {
+world notify-tantum-ergo-dot-os-v0 {
     import notify;
     include process-v0;
 }

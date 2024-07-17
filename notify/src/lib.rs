@@ -1,8 +1,7 @@
 #![feature(let_chains)]
 use crate::kinode::process::notify::{
-    Notification, NotificationWithProcess, Request as NotifyRequest, Response as NotifyResponse,
+    Notification, NotificationWithProcess, Request as NotifyRequest, Response as NotifyResponse, ProcessNotifConfig
 };
-use kinode::process::notify::ProcessNotifConfig;
 use kinode_process_lib::{
     await_message, call_init, get_blob, get_typed_state,
     homepage::add_to_homepage,
@@ -21,7 +20,7 @@ use types::NotifState;
 
 wit_bindgen::generate!({
     path: "target/wit",
-    world: "notify-sys-v0",
+    world: "notify-tantum-ergo-dot-os-v0",
     generate_unused_types: true,
     additional_derives: [serde::Deserialize, serde::Serialize],
 });
@@ -76,11 +75,17 @@ fn handle_http_server_request(
                     if let Ok(Method::POST) = incoming.method()
                         && let Some(body) = get_blob()
                     {
-                        let token: String = serde_json::from_slice(&body.bytes).unwrap();
-                        state.push_tokens.push(token.clone());
-                        set_state(&bincode::serialize(&state)?);
-                        println!("token set: {}", token.clone());
-                        send_response(StatusCode::CREATED, Some(HashMap::new()), vec![]);
+                        let submission: String = serde_json::from_slice(&body.bytes)?;
+                        println!("{}", submission);
+                        // if body.bytes.len() == 0 {
+                        //     println!("bad token request: {:?}", body.bytes.to_string());
+                        //     send_response(StatusCode::BAD_REQUEST, Some(HashMap::new()), vec![]);
+                        //     return Ok(());
+                        // };
+                        // state.push_tokens.push(token.clone());
+                        // set_state(&bincode::serialize(&state)?);
+                        // println!("token set: {}", token.clone());
+                        // send_response(StatusCode::CREATED, Some(HashMap::new()), vec![]);
                     } else {
                         println!("bad token request");
                         send_response(StatusCode::BAD_REQUEST, Some(HashMap::new()), vec![]);
