@@ -1,7 +1,7 @@
 {
     "name": "notify",
-    "description": "",
-    "image": "",
+    "description": "Get notifications from other Kinode apps on your devices.",
+    "image": "https://raw.githubusercontent.com/0x70b1a5/notify/master/ui/public/favicon.png",
     "properties": {
         "package_name": "notify",
         "current_version": "0.1.0",
