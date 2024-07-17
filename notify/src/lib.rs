@@ -75,17 +75,27 @@ fn handle_http_server_request(
                     if let Ok(Method::POST) = incoming.method()
                         && let Some(body) = get_blob()
                     {
-                        let submission: String = serde_json::from_slice(&body.bytes)?;
-                        println!("{}", submission);
-                        // if body.bytes.len() == 0 {
-                        //     println!("bad token request: {:?}", body.bytes.to_string());
-                        //     send_response(StatusCode::BAD_REQUEST, Some(HashMap::new()), vec![]);
-                        //     return Ok(());
-                        // };
-                        // state.push_tokens.push(token.clone());
-                        // set_state(&bincode::serialize(&state)?);
-                        // println!("token set: {}", token.clone());
-                        // send_response(StatusCode::CREATED, Some(HashMap::new()), vec![]);
+                        // Attempt to deserialize as a String
+                        let submission = match String::from_utf8(body.bytes.clone()) {
+                            Ok(s) => s,
+                            Err(_) => {
+                                println!("Failed to parse body as UTF-8 string");
+                                send_response(StatusCode::BAD_REQUEST, Some(HashMap::new()), vec![]);
+                                return Ok(());
+                            }
+                        };
+                        println!("Received token: {}", submission);
+
+                        if submission.is_empty() {
+                            println!("Received empty token");
+                            send_response(StatusCode::BAD_REQUEST, Some(HashMap::new()), vec![]);
+                            return Ok(());
+                        }
+
+                        state.push_tokens.push(submission.clone());
+                        set_state(&bincode::serialize(&state)?);
+                        println!("Token set: {}", submission);
+                        send_response(StatusCode::CREATED, Some(HashMap::new()), vec![]);
                     } else {
                         println!("bad token request");
                         send_response(StatusCode::BAD_REQUEST, Some(HashMap::new()), vec![]);
