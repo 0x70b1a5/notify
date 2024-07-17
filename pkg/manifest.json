@@ -7,10 +7,12 @@
         "request_capabilities": [
             "http_server:distro:sys",
             "homepage:homepage:sys",
-            "vfs:distro:sys"
+            "vfs:distro:sys",
+            "http_client:distro:sys"
         ],
         "grant_capabilities": [
-            "http_server:distro:sys"
+            "http_server:distro:sys",
+            "http_client:distro:sys"
         ],
         "public": false
     }
