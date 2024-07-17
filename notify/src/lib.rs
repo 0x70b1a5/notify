@@ -77,10 +77,12 @@ fn handle_http_server_request(
                         && let Some(body) = get_blob()
                     {
                         let token: String = serde_json::from_slice(&body.bytes).unwrap();
-                        state.push_tokens.push(token);
+                        state.push_tokens.push(token.clone());
                         set_state(&bincode::serialize(&state)?);
+                        println!("token set: {}", token.clone());
                         send_response(StatusCode::CREATED, Some(HashMap::new()), vec![]);
                     } else {
+                        println!("bad token request");
                         send_response(StatusCode::BAD_REQUEST, Some(HashMap::new()), vec![]);
                     }
                 }
@@ -238,7 +240,8 @@ fn handle_notify_request(
                     }
 
                     add_notif_to_archive(state, source, &mut notif)?;
-                    // TODO: send notification
+                    
+                    send_notif_to_expo(&mut notif)?;
                 } else {
                     // insert default config
                     state.config.insert(
@@ -397,11 +400,18 @@ fn send_notif_to_expo(notif: &mut Notification) -> anyhow::Result<()> {
     };
     let body = serde_json::to_vec(&HttpClientAction::Http(outgoing_request))?;
 
-    if let Some(state) = get_typed_state(|bytes| Ok(bincode::deserialize::<NotifState>(bytes)?)) {
+    // it's a bit clunky to add the To: field at this late stage, 
+    //   but since only Notify knows what the tokens are 
+    //   (and not any of the other processes) it's not clear 
+    //   how to improve this.
+    if let Some(state) = get_typed_state(
+        |bytes| Ok(bincode::deserialize::<NotifState>(bytes)?)
+    ) {
         notif.to = state.push_tokens.clone();
     }
 
-    Request::new()
+    println!("sending notif to expo: {:?}", notif);
+    let Ok(resp) = Request::new()
         .target(Address::new(
             "our",
             ProcessId::new(Some("http_client"), "distro", "sys"),
@@ -412,7 +422,12 @@ fn send_notif_to_expo(notif: &mut Notification) -> anyhow::Result<()> {
             mime: Some("application/json".to_string()),
             bytes: serde_json::to_vec(notif)?,
         })
-        .send()?;
+        .send()
+    else {
+        println!("failed to send notif to expo");
+        return Ok(());
+    };
+    println!("notif sent to expo: {:?}", resp);
 
     Ok(())
 }
