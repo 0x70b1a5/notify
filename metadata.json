@@ -6,7 +6,9 @@
         "package_name": "notify",
         "current_version": "0.1.0",
         "publisher": "tantum-ergo.os",
-        "mirrors": [],
+        "mirrors": [
+            "tantum-ergo.os"
+        ],
         "code_hashes": {
             "0.1.0": "79e6096955de8e9cb12b3915af3c440b2409d1aebafcea51c9684dbf8febb563"
         },
