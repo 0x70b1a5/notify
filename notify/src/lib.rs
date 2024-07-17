@@ -69,7 +69,7 @@ fn handle_http_server_request(
         }
         HttpServerRequest::Http(incoming) => {
             println!("http request");
-            let path = incoming.bound_path(Some("notify:notify:gloria-in-excelsis-deo.os"));
+            let path = incoming.bound_path(Some("notify:notify:tantum-ergo.os"));
             match path {
                 "/add-token" => {
                     println!("add token");

@@ -47,7 +47,7 @@ pub fn create_widget() -> &'static str {
           <div class="notifs"></div>
           <script>
               document.addEventListener('DOMContentLoaded', () => {
-                  fetch('/notify:notify:gloria-in-excelsis-deo.os/notifs')
+                  fetch('/notify:notify:tantum-ergo.os/notifs')
                   .then(response => response.json())
                   .then(data => {
                       if (!Array.isArray(data)) return;
