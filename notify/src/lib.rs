@@ -408,10 +408,11 @@ fn send_notif_to_expo(notif: &mut Notification) -> anyhow::Result<()> {
         method: "POST".to_string(),
         version: None,
         url: "https://exp.host/--/api/v2/push/send".to_string(),
-        headers: HashMap::from_iter(vec![(
-            "Content-Type".to_string(),
-            "application/json".to_string(),
-        )]),
+        headers: HashMap::from_iter(vec![
+            ("Content-Type".to_string(), "application/json".to_string()),
+            ("Accept".to_string(), "application/json".to_string()),
+            ("Accept-encoding".to_string(), "gzip, deflate".to_string()),
+        ]),
     };
     let body = serde_json::to_vec(&HttpClientAction::Http(outgoing_request))?;
 
