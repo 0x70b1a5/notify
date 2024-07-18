@@ -221,6 +221,58 @@ fn add_notif_to_archive(
     Ok(())
 }
 
+
+fn send_notif_to_expo(notif: &mut Notification) -> anyhow::Result<()> {
+    let outgoing_request = OutgoingHttpRequest {
+        method: "POST".to_string(),
+        version: None,
+        url: "https://exp.host/--/api/v2/push/send".to_string(),
+        headers: HashMap::from_iter(vec![
+            ("Content-Type".to_string(), "application/json".to_string()),
+            ("Accept".to_string(), "application/json".to_string()),
+            ("Accept-encoding".to_string(), "gzip, deflate".to_string()),
+        ]),
+    };
+    let body = serde_json::to_vec(&HttpClientAction::Http(outgoing_request))?;
+
+    // it's a bit clunky to add the To: field at this late stage, 
+    //   but since only Notify knows what the tokens are 
+    //   (and not any of the other processes) it's not clear 
+    //   how to improve this.
+    if let Some(state) = get_typed_state(
+        |bytes| Ok(bincode::deserialize::<NotifState>(bytes)?)
+    ) {
+        notif.to = state.push_tokens.clone();
+    }
+
+    //TODO: figure this out later.
+    notif.data = None;
+
+    println!("sending notif to expo: {:?}", notif);
+    let Ok(resp) = Request::new()
+        .target(Address::new(
+            "our",
+            ProcessId::new(Some("http_client"), "distro", "sys"),
+        ))
+        .body(body)
+        .expects_response(30)
+        .blob(LazyLoadBlob {
+            mime: Some("application/json".to_string()),
+            bytes: serde_json::to_vec(notif)?,
+        })
+        .send_and_await_response(30)
+    else {
+        println!("failed to send notif to expo");
+        return Ok(());
+    };
+    println!("notif response: {:?}", resp);
+    if let Some(blob) = get_blob() {
+        println!("response: {:?}", serde_json::from_slice::<serde_json::Value>(&blob.bytes));
+    }
+
+    Ok(())
+}
+
 fn handle_notify_request(
     our: &Address,
     state: &mut NotifState,
@@ -406,52 +458,4 @@ fn init(our: Address) {
             }
         };
     }
-}
-
-fn send_notif_to_expo(notif: &mut Notification) -> anyhow::Result<()> {
-    let outgoing_request = OutgoingHttpRequest {
-        method: "POST".to_string(),
-        version: None,
-        url: "https://exp.host/--/api/v2/push/send".to_string(),
-        headers: HashMap::from_iter(vec![
-            ("Content-Type".to_string(), "application/json".to_string()),
-            ("Accept".to_string(), "application/json".to_string()),
-            ("Accept-encoding".to_string(), "gzip, deflate".to_string()),
-        ]),
-    };
-    let body = serde_json::to_vec(&HttpClientAction::Http(outgoing_request))?;
-
-    // it's a bit clunky to add the To: field at this late stage, 
-    //   but since only Notify knows what the tokens are 
-    //   (and not any of the other processes) it's not clear 
-    //   how to improve this.
-    if let Some(state) = get_typed_state(
-        |bytes| Ok(bincode::deserialize::<NotifState>(bytes)?)
-    ) {
-        notif.to = state.push_tokens.clone();
-    }
-
-    println!("sending notif to expo: {:?}", notif);
-    let Ok(resp) = Request::new()
-        .target(Address::new(
-            "our",
-            ProcessId::new(Some("http_client"), "distro", "sys"),
-        ))
-        .body(body)
-        .expects_response(30)
-        .blob(LazyLoadBlob {
-            mime: Some("application/json".to_string()),
-            bytes: serde_json::to_vec(notif)?,
-        })
-        .send_and_await_response(30)
-    else {
-        println!("failed to send notif to expo");
-        return Ok(());
-    };
-    println!("notif response: {:?}", resp);
-    if let Some(blob) = get_blob() {
-        println!("response: {:?}", serde_json::from_slice::<serde_json::Value>(&blob.bytes));
-    }
-
-    Ok(())
 }
