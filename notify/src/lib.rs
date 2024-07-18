@@ -245,20 +245,20 @@ fn send_notif_to_expo(notif: &mut Notification) -> anyhow::Result<()> {
         notif.to = state.push_tokens.clone();
     }
 
-    //TODO: figure this out later. make data an empty json object
-    if notif.data.is_none() {
-        notif.data = Some(serde_json::json!({}).to_string());
+    // expo API is VERY STRICT about formatting, 
+    //   so we need to manually recreate the submitted notification 
+    //   with no null values.
+    let json_notif = serde_json::from_slice::<serde_json::Value>(&serde_json::to_vec(&notif)?)?;
+    let Some(notif_obj) = json_notif.as_object() else {
+        println!("notif is not an object");
+        return Ok(());
+    };
+    let mut notif_to_submit = HashMap::new();
+    for (key, value) in notif_obj {
+        if !value.is_null() {
+            notif_to_submit.insert(key, value);
+        }
     }
-
-    if notif.ttl.is_none() {
-        notif.ttl = Some(0);
-    }
-
-    if notif.expiration.is_none() {
-        notif.expiration = Some(0);
-    }
-
-    
 
     println!("sending notif to expo: {:?}", notif);
     let Ok(resp) = Request::new()
@@ -270,7 +270,7 @@ fn send_notif_to_expo(notif: &mut Notification) -> anyhow::Result<()> {
         .expects_response(30)
         .blob(LazyLoadBlob {
             mime: Some("application/json".to_string()),
-            bytes: serde_json::to_vec(notif)?,
+            bytes: serde_json::to_vec(&notif_to_submit)?,
         })
         .send_and_await_response(30)
     else {
