@@ -445,7 +445,7 @@ fn send_notif_to_expo(notif: &mut Notification) -> anyhow::Result<()> {
         })
         .send_and_await_response(30)
     else {
-        println!("failed to send notif to expo: {:?}", resp);
+        println!("failed to send notif to expo");
         return Ok(());
     };
     println!("notif sent to expo: {:?}", resp);
