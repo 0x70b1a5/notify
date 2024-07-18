@@ -92,10 +92,15 @@ fn handle_http_server_request(
                             return Ok(());
                         }
 
-                        state.push_tokens.push(submission.clone());
-                        set_state(&bincode::serialize(&state)?);
-                        println!("Token set: {}", submission);
-                        send_response(StatusCode::CREATED, Some(HashMap::new()), vec![]);
+                        if !state.push_tokens.contains(&submission) {
+                            state.push_tokens.push(submission.clone());
+                            set_state(&bincode::serialize(&state)?);
+                            println!("Token set: {}", submission);
+                            send_response(StatusCode::CREATED, Some(HashMap::new()), vec![]);
+                        } else {
+                            println!("Token already exists: {}", submission);
+                            send_response(StatusCode::OK, Some(HashMap::new()), vec![]);
+                        }
                     } else {
                         println!("bad token request");
                         send_response(StatusCode::BAD_REQUEST, Some(HashMap::new()), vec![]);
@@ -438,9 +443,9 @@ fn send_notif_to_expo(notif: &mut Notification) -> anyhow::Result<()> {
             mime: Some("application/json".to_string()),
             bytes: serde_json::to_vec(notif)?,
         })
-        .send()
+        .send_and_await_response(30)
     else {
-        println!("failed to send notif to expo");
+        println!("failed to send notif to expo: {:?}", resp);
         return Ok(());
     };
     println!("notif sent to expo: {:?}", resp);
