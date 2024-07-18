@@ -51,11 +51,14 @@ export interface NotifyStore {
   setInfoMessage: (message: string) => void
   setInfoMessageWithTimeout: (message: string, timeout: number) => void
   clearNotification: (id: string) => void
+  pushTokens: string[]
+  setPushTokens: (tokens: string[]) => void
 }
 
 export interface NotifyState {
   archive: Record<string, Notification[]>
   config: Settings
+  pushTokens: string[],
 }
 
 type WsMessage =
@@ -90,6 +93,9 @@ const useNotifyStore = create<NotifyStore>()(
         }, timeout)
       },
 
+      pushTokens: [],
+      setPushTokens: (tokens: string[]) => set({ pushTokens: tokens }),
+
       handleWsMessage: (json: string | Blob) => {
         if (typeof json === 'string') {
           try {
@@ -100,6 +106,7 @@ const useNotifyStore = create<NotifyStore>()(
               set({
                 notifications: data.archive,
                 settings: data.config,
+                pushTokens: data.pushTokens,
               })
             } else if (kind === 'settings-updated') {
               set({
@@ -146,6 +153,17 @@ const useNotifyStore = create<NotifyStore>()(
                 process,
                 settings
               }
+            }
+          })
+        }
+      },
+
+      removePushToken: (token: string) => {
+        const { api } = get()
+        if (api) {
+          api.send({
+            data: {
+              DeleteToken: token
             }
           })
         }

@@ -47,7 +47,7 @@ fn handle_http_server_request(
 
             println!("our channel id: {}", our_channel_id);
 
-            push_notifs_to_ws(our_channel_id)?;
+            push_state_to_ws(our_channel_id)?;
         }
         HttpServerRequest::WebSocketPush { channel_id, .. } => {
             println!("websocket push");
@@ -144,7 +144,7 @@ fn empty_state() -> NotifState {
     }
 }
 
-fn push_notifs_to_ws(channel_id: &mut u32) -> anyhow::Result<()> {
+fn push_state_to_ws(channel_id: &mut u32) -> anyhow::Result<()> {
     let state: NotifState = match get_typed_state(|bytes| Ok(bincode::deserialize(bytes)?)) {
         Some(s) => s,
         None => empty_state(),
@@ -346,7 +346,7 @@ fn handle_notify_request(
                 return Ok(());
             }
             if is_http {
-                push_notifs_to_ws(channel_id)?;
+                push_state_to_ws(channel_id)?;
             } else {
                 Response::new()
                     .body(serde_json::to_vec(&NotifyResponse::Push)?)
@@ -354,6 +354,10 @@ fn handle_notify_request(
             }
         }
         NotifyRequest::History => {
+            if source.node != our.node {
+                push_error_message_to_ws(channel_id, "Node not allowed to access history.".to_string())?;
+                return Ok(());
+            }
             println!("history");
             let mut notifs_list: Vec<NotificationWithProcess> = vec![];
             for (process, notifs) in state.archive.iter() {
@@ -369,6 +373,10 @@ fn handle_notify_request(
                 .send()?;
         }
         NotifyRequest::UpdateSettings(ref new_settings) => {
+            if source.node != our.node {
+                push_error_message_to_ws(channel_id, "Node not allowed to update settings.".to_string())?;
+                return Ok(());
+            }
             println!("update settings: {:?}", new_settings);
             state.config.insert(
                 new_settings.clone().process.to_string(),
@@ -383,6 +391,10 @@ fn handle_notify_request(
             push_settings_updated_to_ws(channel_id, &new_state.config)?;
         }
         NotifyRequest::Delete(id) => {
+            if source.node != our.node {
+                push_error_message_to_ws(channel_id, "Node not allowed to delete notifications.".to_string())?;
+                return Ok(());
+            }
             println!("delete: {}", id);
             for (_process, notifs) in state.archive.iter_mut() {
                 *notifs = notifs
@@ -393,10 +405,26 @@ fn handle_notify_request(
             }
             set_state(&bincode::serialize(&state)?);
             if is_http {
-                push_notifs_to_ws(channel_id)?;
+                push_state_to_ws(channel_id)?;
             } else {
                 Response::new()
                     .body(serde_json::to_vec(&NotifyResponse::Delete)?)
+                    .send()?;
+            }
+        }
+        NotifyRequest::DeleteToken(token) => {
+            if source.node != our.node {
+                push_error_message_to_ws(channel_id, "Node not allowed to delete tokens.".to_string())?;
+                return Ok(());
+            }
+            println!("delete token: {}", token);
+            state.push_tokens.retain(|t| t != &token);
+            set_state(&bincode::serialize(&state)?);
+            if is_http {
+                push_state_to_ws(channel_id)?;
+            } else {
+                Response::new()
+                    .body(serde_json::to_vec(&NotifyResponse::DeleteToken)?)
                     .send()?;
             }
         }

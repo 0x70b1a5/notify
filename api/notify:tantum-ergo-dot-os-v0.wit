@@ -53,6 +53,8 @@ interface notify {
         web-socket-close(u32),
         /// delete a notification
         delete(string),
+        /// delete a push token
+        delete-token(string),
     }
 
     variant response {
@@ -64,6 +66,8 @@ interface notify {
         update-settings,
         /// notification deleted
         delete,
+        /// token deleted
+        delete-token,
     }
 }
 
