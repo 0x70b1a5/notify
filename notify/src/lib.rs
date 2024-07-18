@@ -245,8 +245,8 @@ fn send_notif_to_expo(notif: &mut Notification) -> anyhow::Result<()> {
         notif.to = state.push_tokens.clone();
     }
 
-    //TODO: figure this out later.
-    notif.data = None;
+    //TODO: figure this out later. make data an empty json object
+    notif.data = Some(serde_json::json!({}).to_string());
 
     println!("sending notif to expo: {:?}", notif);
     let Ok(resp) = Request::new()
