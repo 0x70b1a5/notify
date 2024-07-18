@@ -341,11 +341,11 @@ fn handle_notify_request(
     Ok(())
 }
 
-fn handle_response(source: &Address, _body: &[u8], _is_http: bool) -> anyhow::Result<()> {
-    if source.process.eq(&ProcessId::from_str("http_client:distro:sys")?) {
-        let blob = get_blob();
-        println!("http response: {:?}", blob);
+fn handle_response(_source: &Address, body: &[u8], _is_http: bool) -> anyhow::Result<()> {
+    if let Some(blob) = get_blob() {
+        println!("response: {:?}", blob);
     }
+    println!("response: {:?}", body);
     Ok(())
 }
 
