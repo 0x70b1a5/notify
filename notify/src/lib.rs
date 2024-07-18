@@ -251,8 +251,14 @@ fn send_notif_to_expo(notif: &mut Notification) -> anyhow::Result<()> {
     }
 
     if notif.ttl.is_none() {
-        notif.ttl = Some(1000);
+        notif.ttl = Some(0);
     }
+
+    if notif.expiration.is_none() {
+        notif.expiration = Some(0);
+    }
+
+    
 
     println!("sending notif to expo: {:?}", notif);
     let Ok(resp) = Request::new()
