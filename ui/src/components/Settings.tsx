@@ -3,7 +3,7 @@ import useNotifyStore, { DEFAULT_SETTINGS } from "../store/notifyStore"
 import { FaCheck, FaX } from "react-icons/fa6"
 
 export default function Settings() {
-  const { notifications, settings, setSettings, saveSettings, } = useNotifyStore()
+  const { notifications, settings, setSettings, saveSettings, pushTokens, removePushToken } = useNotifyStore()
 
   const [availableProcesses, setAvailableProcesses] = useState<string[]>([])
 
@@ -20,6 +20,20 @@ export default function Settings() {
   return <div className="flex-col-center gap-2 grow self-stretch">
     <h1 className="font-bold">Settings</h1>
     <div className="flex-col-center gap-2">
+      <h2>Push Tokens</h2>
+      {pushTokens.map((token) => (
+        <div key={token} className="flex gap-8 bg-white/10 p-2 rounded-md">
+          <h2>{token}</h2>
+          <button className="icon clear" onClick={() => {
+            if (window.confirm("Are you sure you want to delete this token?")) {
+              removePushToken(token)
+            }
+          }}>
+            <FaX />
+          </button>
+        </div>
+      ))}
+      <h2>Processes</h2>
       {availableProcesses.map((process) => (
         <div key={process} className="flex gap-8 bg-white/10 p-2 rounded-md">
           <h2>{process}</h2>

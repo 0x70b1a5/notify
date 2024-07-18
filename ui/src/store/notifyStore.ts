@@ -53,6 +53,7 @@ export interface NotifyStore {
   clearNotification: (id: string) => void
   pushTokens: string[]
   setPushTokens: (tokens: string[]) => void
+  removePushToken: (token: string) => void
 }
 
 export interface NotifyState {
