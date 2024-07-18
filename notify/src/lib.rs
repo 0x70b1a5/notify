@@ -341,11 +341,7 @@ fn handle_notify_request(
     Ok(())
 }
 
-fn handle_response(_source: &Address, body: &[u8], _is_http: bool) -> anyhow::Result<()> {
-    if let Some(blob) = get_blob() {
-        println!("response: {:?}", blob);
-    }
-    println!("response: {:?}", body);
+fn handle_response(_source: &Address, _body: &[u8], _is_http: bool) -> anyhow::Result<()> {
     Ok(())
 }
 
@@ -452,7 +448,10 @@ fn send_notif_to_expo(notif: &mut Notification) -> anyhow::Result<()> {
         println!("failed to send notif to expo");
         return Ok(());
     };
-    println!("notif sent to expo: {:?}", resp);
+    println!("notif response: {:?}", resp);
+    if let Some(blob) = get_blob() {
+        println!("response blob: {:?}", blob);
+    }
 
     Ok(())
 }
