@@ -59,7 +59,7 @@ export interface NotifyStore {
 export interface NotifyState {
   archive: Record<string, Notification[]>
   config: Settings
-  pushTokens: string[],
+  push_tokens: string[],
 }
 
 type WsMessage =
@@ -107,7 +107,7 @@ const useNotifyStore = create<NotifyStore>()(
               set({
                 notifications: data.archive,
                 settings: data.config,
-                pushTokens: data.pushTokens,
+                pushTokens: data.push_tokens,
               })
             } else if (kind === 'settings-updated') {
               set({
