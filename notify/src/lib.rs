@@ -450,7 +450,7 @@ fn send_notif_to_expo(notif: &mut Notification) -> anyhow::Result<()> {
     };
     println!("notif response: {:?}", resp);
     if let Some(blob) = get_blob() {
-        println!("response blob: {:?}", blob);
+        println!("response: {:?}", serde_json::from_slice::<serde_json::Value>(&blob.bytes));
     }
 
     Ok(())
