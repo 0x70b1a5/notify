@@ -22,8 +22,8 @@ export default function Settings() {
     <div className="flex-col-center gap-2">
       <h2>Push Tokens</h2>
       {pushTokens.map((token) => (
-        <div key={token} className="flex gap-8 bg-white/10 p-2 rounded-md">
-          <h2>{token}</h2>
+        <div key={token} className="flex gap-8 bg-white/10 p-2 rounded-md items-center">
+          <p>{token}</p>
           <button className="icon clear" onClick={() => {
             if (window.confirm("Are you sure you want to delete this token?")) {
               removePushToken(token)
