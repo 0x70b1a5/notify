@@ -246,7 +246,13 @@ fn send_notif_to_expo(notif: &mut Notification) -> anyhow::Result<()> {
     }
 
     //TODO: figure this out later. make data an empty json object
-    notif.data = Some(serde_json::json!({}).to_string());
+    if notif.data.is_none() {
+        notif.data = Some(serde_json::json!({}).to_string());
+    }
+
+    if notif.ttl.is_none() {
+        notif.ttl = Some(1000);
+    }
 
     println!("sending notif to expo: {:?}", notif);
     let Ok(resp) = Request::new()
