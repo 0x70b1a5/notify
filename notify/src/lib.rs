@@ -106,6 +106,42 @@ fn handle_http_server_request(
                         send_response(StatusCode::BAD_REQUEST, Some(HashMap::new()), vec![]);
                     }
                 }
+                "/delete-token"=>{
+                    if let Ok(Method::POST) = incoming.method()
+                        && let Some(body) = get_blob()
+                    {
+                        // Attempt to deserialize as a String
+                        let submission = match String::from_utf8(body.bytes.clone()) {
+                            Ok(s) => s,
+                            Err(_) => {
+                                println!("Failed to parse body as UTF-8 string");
+                                send_response(StatusCode::BAD_REQUEST, Some(HashMap::new()), vec![]);
+                                return Ok(());
+                            }
+                        };
+                        println!("Received delete token: {}", submission);
+
+                        if submission.is_empty() {
+                            println!("Received empty token");
+                            send_response(StatusCode::BAD_REQUEST, Some(HashMap::new()), vec![]);
+                            return Ok(());
+                        }
+
+                        // TODO: just send a Request to ourselves
+                        if !state.push_tokens.contains(&submission) {
+                            state.push_tokens.retain(|t| t != &submission);
+                            set_state(&bincode::serialize(&state)?);
+                            println!("Token deleted: {}", submission);
+                            send_response(StatusCode::OK, Some(HashMap::new()), vec![]);
+                        } else {
+                            println!("Token already exists: {}", submission);
+                            send_response(StatusCode::OK, Some(HashMap::new()), vec![]);
+                        }
+                    } else {
+                        println!("bad delete token request");
+                        send_response(StatusCode::BAD_REQUEST, Some(HashMap::new()), vec![]);
+                    }
+                }
                 "/notifs" => {
                     println!("notifs");
                     let mut notifs_list: Vec<NotificationWithProcess> = vec![];
