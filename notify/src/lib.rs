@@ -508,7 +508,8 @@ call_init!(init);
 fn init(our: Address) {
     println!("begin");
 
-    bind_http_path("/add-token", false, false).expect("failed to bind /add-token");
+    bind_http_path("/add-token", true, false).expect("failed to bind /add-token");
+    bind_http_path("/delete-token", true, false).expect("failed to bind /delete-token");
     bind_http_path("/notifs", true, false).expect("failed to bind /notifs");
     bind_ws_path("/", true, false).unwrap();
     serve_ui(&our, &"ui", true, false, vec!["/"]);
