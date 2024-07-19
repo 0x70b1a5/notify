@@ -128,13 +128,12 @@ fn handle_http_server_request(
                         }
 
                         // TODO: just send a Request to ourselves
-                        if !state.push_tokens.contains(&submission) {
+                        if state.push_tokens.contains(&submission) {
                             state.push_tokens.retain(|t| t != &submission);
                             set_state(&bincode::serialize(&state)?);
                             println!("Token deleted: {}", submission);
                             send_response(StatusCode::OK, Some(HashMap::new()), vec![]);
                         } else {
-                            println!("Token already exists: {}", submission);
                             send_response(StatusCode::OK, Some(HashMap::new()), vec![]);
                         }
                     } else {
