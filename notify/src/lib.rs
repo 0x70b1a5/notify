@@ -20,7 +20,7 @@ use types::NotifState;
 
 wit_bindgen::generate!({
     path: "target/wit",
-    world: "notify-tantum-ergo-dot-os-v0",
+    world: "notify-uncentered-dot-os-v0",
     generate_unused_types: true,
     additional_derives: [serde::Deserialize, serde::Serialize],
 });
@@ -68,7 +68,7 @@ fn handle_http_server_request(
         }
         HttpServerRequest::Http(incoming) => {
             println!("http request");
-            let path = incoming.bound_path(Some("notify:notify:tantum-ergo.os"));
+            let path = incoming.bound_path(Some("notify:notify:uncentered.os"));
             match path {
                 "/add-token" => {
                     println!("add token");
@@ -270,9 +270,9 @@ fn send_notif_to_expo(notif: &mut Notification) -> anyhow::Result<()> {
     };
     let body = serde_json::to_vec(&HttpClientAction::Http(outgoing_request))?;
 
-    // it's a bit clunky to add the To: field at this late stage, 
-    //   but since only Notify knows what the tokens are 
-    //   (and not any of the other processes) it's not clear 
+    // it's a bit clunky to add the To: field at this late stage,
+    //   but since only Notify knows what the tokens are
+    //   (and not any of the other processes) it's not clear
     //   how to improve this.
     if let Some(state) = get_typed_state(
         |bytes| Ok(bincode::deserialize::<NotifState>(bytes)?)
@@ -280,8 +280,8 @@ fn send_notif_to_expo(notif: &mut Notification) -> anyhow::Result<()> {
         notif.to = state.push_tokens.clone();
     }
 
-    // expo API is VERY STRICT about formatting, 
-    //   so we need to manually recreate the submitted notification 
+    // expo API is VERY STRICT about formatting,
+    //   so we need to manually recreate the submitted notification
     //   with no null values.
     let json_notif = serde_json::from_slice::<serde_json::Value>(&serde_json::to_vec(&notif)?)?;
     let Some(notif_obj) = json_notif.as_object() else {
@@ -359,7 +359,7 @@ fn handle_notify_request(
                     }
 
                     add_notif_to_archive(state, source, &mut notif)?;
-                    
+
                     send_notif_to_expo(&mut notif)?;
                 } else {
                     // insert default config

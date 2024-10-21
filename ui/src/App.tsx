@@ -27,7 +27,7 @@ function App() {
       const newApi = new KinodeEncryptorApi({
         uri: WEBSOCKET_URL,
         nodeId: (window as any).our?.node,
-        processId: 'notify:notify:tantum-ergo.os',
+        processId: 'notify:notify:uncentered.os',
         onMessage: handleWsMessage,
       });
 

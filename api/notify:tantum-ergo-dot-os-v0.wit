@@ -45,7 +45,7 @@ interface notify {
     variant request {
         /// send a notification
         push(notification),
-        /// history of notifications 
+        /// history of notifications
         history,
         /// change settings
         update-settings(process-settings-update),
@@ -71,7 +71,7 @@ interface notify {
     }
 }
 
-world notify-tantum-ergo-dot-os-v0 {
+world notify-uncentered-dot-os-v0 {
     import notify;
     include process-v0;
 }

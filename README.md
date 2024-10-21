@@ -2,7 +2,7 @@
 
 A [Kinode](https://github.com/kinode-dao/kinode) app for notifications.
 
-It's on the app store: `/main:app_store:sys/app-details/notify:tantum-ergo.os`!
+It's on the app store: `/main:app_store:sys/app-details/notify:uncentered.os`!
 
 ## Roadmap
 
