@@ -12,7 +12,8 @@
         ],
         "code_hashes": {
             "0.1.0": "4b40c2c84dbadb5356cc967da1bed79fc511783443db879b27895c137a96f57d",
-            "0.1.1": "2e9d66c4f78092e8edb10e8bc204628819aa655a23c17bafd90cd28dd9648454"
+            "0.1.1": "2e9d66c4f78092e8edb10e8bc204628819aa655a23c17bafd90cd28dd9648454",
+            "0.1.2": "c67bf6772cb5698e21f89518f99b43c86724f789eb28cd5976992353394754a6"
         },
         "wit_version": 0,
         "dependencies": []
