@@ -14,8 +14,9 @@ pub fn create_widget() -> &'static str {
           font-family: sans-serif;
           border-radius: 1em;
           backdrop-filter: saturate(1.25);
-          color: white;
+          font-size: 14px;
       }
+
 
       .notifs {
           display: flex;
@@ -27,20 +28,30 @@ pub fn create_widget() -> &'static str {
       .notif {
           border-radius: 0.5em;
           padding: 0.5em;
-          background: rgba(255, 255, 255, 0.1);
+          background: rgba(0, 0, 0, 0.1);
       }
 
       .notif:hover {
-          background: rgba(255, 255, 255, 0.2);
+          background: rgba(0, 0, 0, 0.2);
       }
 
       .title {
           font-weight: bold;
       }
 
-      .body {
-          font-size: 14px;
-      }
+      @media (prefers-color-scheme: dark) {
+        body {
+          color: white;
+        }
+
+          .notif {
+              background: rgba(255, 255, 255, 0.1);
+          }
+
+          .notif:hover {
+              background: rgba(255, 255, 255, 0.2);
+          }
+    }
   </style>
   </head>
       <body>
