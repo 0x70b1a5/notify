@@ -5,9 +5,10 @@
     "properties": {
         "package_name": "notify",
         "current_version": "0.1.0",
-        "publisher": "tantum-ergo.os",
+        "publisher": "uncentered.os",
         "mirrors": [
-            "tantum-ergo.os"
+            "uncentered.os",
+            "some-sweet-moniker.os"
         ],
         "code_hashes": {
             "0.1.0": "4b40c2c84dbadb5356cc967da1bed79fc511783443db879b27895c137a96f57d",
